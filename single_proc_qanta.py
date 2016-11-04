@@ -148,7 +148,7 @@ if __name__ == '__main__':
 
     r = roll_params(params, rel_list)
     dim = r.shape[0]
-    
+
     # add vocab lookup to leaves / answer
     print 'adding lookup'
     for tree in trees:

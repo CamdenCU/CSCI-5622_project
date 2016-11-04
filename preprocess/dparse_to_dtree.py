@@ -91,7 +91,7 @@ def make_tree(plist):
         kid_ind, kid_word = deps[1]
         tree.add_edge(par_ind, kid_ind, rel)
 
-    return tree  
+    return tree
 
 
 # - given all dependency parses of a dataset as well as that dataset (in the same order),
@@ -161,7 +161,7 @@ def process_question_file():
             for node in tree.get_nodes():
                 if node.word not in vocab:
                     vocab.append(node.word)
-                
+
                 node.ind = vocab.index(node.word)
 
                 for ind, rel in node.kids:

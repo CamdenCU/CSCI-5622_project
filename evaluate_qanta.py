@@ -6,7 +6,7 @@ import argparse
 ## - be sure to train a model first by running qanta.py
 
 if __name__ == '__main__':
-    
+
     # command line arguments
     parser = argparse.ArgumentParser(description='QANTA evaluation')
     parser.add_argument('-data', help='location of dataset', default='data/hist_split')

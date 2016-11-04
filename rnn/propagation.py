@@ -34,7 +34,7 @@ def forward_prop(params, tree, d, labels=True):
 
         else:
 
-            # - root isn't a part of this! 
+            # - root isn't a part of this!
             # - more specifically, the stanford dep. parser creates a superficial ROOT node
             #   associated with the word "root" that we don't want to consider during training
             if len(to_do) == 0:
@@ -65,13 +65,13 @@ def forward_prop(params, tree, d, labels=True):
                     try:
                         kid_sum += rel_dict[rel].dot(curr_kid.p_norm)
 
-                    # - this shouldn't happen unless the parser spit out a seriously 
+                    # - this shouldn't happen unless the parser spit out a seriously
                     #   malformed tree
                     except KeyError:
                         print 'forward propagation error'
                         print tree.get_words()
                         print curr.word, rel, tree.get(ind).word
-                
+
                 kid_sum += Wv.dot(curr.vec)
                 curr.p = tanh(kid_sum + b)
                 curr.p_norm = curr.p / linalg.norm(curr.p)
@@ -92,7 +92,7 @@ def forward_prop(params, tree, d, labels=True):
                     # WARP approximation of rank
                     rank = (len(wrong_ans) - 1) / rank
 
-                    # multiply curr.ans_error and curr.ans_delta by 1/rank for WARP effect 
+                    # multiply curr.ans_error and curr.ans_delta by 1/rank for WARP effect
                     curr.ans_error += err
                     delta = delta_base + ans
                     curr.ans_delta += delta.reshape( (d, 1))

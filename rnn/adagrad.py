@@ -1,6 +1,6 @@
 from numpy import *
 
-class Adagrad(): 
+class Adagrad():
 
     def __init__(self, dim):
         self.dim = dim
@@ -9,7 +9,7 @@ class Adagrad():
         # initial learning rate
         self.learning_rate = 0.05
 
-        # stores sum of squared gradients 
+        # stores sum of squared gradients
         self.h = zeros(self.dim)
 
     def rescale_update(self, gradient):

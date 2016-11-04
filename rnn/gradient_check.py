@@ -2,12 +2,12 @@ from numpy import *
 
 def gradient_check(obj_and_grad, obj, dim, f_args):
 
-    # f_args looks like [data, params, vector dim, vocab size, 
+    # f_args looks like [data, params, vector dim, vocab size,
     #                    list of dependency relations, regularization lambdas]
 
     params = f_args[1]
     print 'checking gradients given parameter vector of dimensionality', dim
-    
+
     cost, actual_grad = obj_and_grad(*f_args)
     num_grad = zeros(actual_grad.shape)
 

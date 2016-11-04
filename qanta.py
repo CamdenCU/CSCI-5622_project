@@ -12,26 +12,26 @@ from multiprocessing import Pool
 # splits the training data into minibatches
 # multi-core parallelization
 def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
-    pool = Pool(processes=num_proc) 
+    pool = Pool(processes=num_proc)
 
     # non-data params
     oparams = [params, d, len_voc, rel_list]
-    
+
     # chunk size
     n = len(data) / num_proc
     split_data = [data[i:i+n] for i in range(0, len(data), n)]
     to_map = []
     for item in split_data:
         to_map.append( (oparams, item) )
-        
+
     result = pool.map(objective_and_grad, to_map)
-    pool.close()   # no more processes accepted by this pool    
+    pool.close()   # no more processes accepted by this pool
     pool.join()    # wait until all processes are finished
-    
+
     total_err = 0.0
     all_nodes = 0.0
     total_grad = None
-    
+
     for (err, grad, num_nodes) in result:
         total_err += err
 
@@ -44,7 +44,7 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
 
     # add L2 regularization
     params = unroll_params(params, d, len_voc, rel_list)
-    (rel_dict, Wv, b, L) = params    
+    (rel_dict, Wv, b, L) = params
     grads = unroll_params(total_grad, d, len_voc, rel_list)
     [lambda_W, lambda_L] = lambdas
 
@@ -132,25 +132,25 @@ if __name__ == '__main__':
                          default='models/hist_params')
 
     args = vars(parser.parse_args())
-    
+
 
     ## load data
     vocab, rel_list, ans_list, tree_dict = \
         cPickle.load(open(args['data'], 'rb'))
 
     # four total folds in this dataset: train, test, dev, and devtest
-    train_trees = tree_dict['train'] 
+    train_trees = tree_dict['train']
 
-    # - since the dataset that we were able to release is fairly small, the 
+    # - since the dataset that we were able to release is fairly small, the
     #   test, dev, and devtest folds are tiny. feel free to validate over another
-    #   combination of these folds if you wish. 
+    #   combination of these folds if you wish.
     val_trees = tree_dict['dev']
 
     ans_list = array([vocab.index(ans) for ans in ans_list])
 
     # NOTE: it significantly helps both accuracy and training time to initialize
     #       word embeddings using something like Word2Vec. we have provided word2vec
-    #       embeddings for both datasets. for other data, we strongly recommend 
+    #       embeddings for both datasets. for other data, we strongly recommend
     #       using a similar smart initialization. you can also randomly initalize, although
     #       this generally results in slower convergence to a worse local minima
     orig_We = cPickle.load(open(args['We'], 'rb'))
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     # print 'removed ', len(bad_trees)
     for ind in bad_trees[::-1]:
         val_trees.pop(ind)
-    
+
     # add vocab lookup to leaves / answer
     print 'adding lookup'
     for tree in train_trees:
@@ -226,7 +226,7 @@ if __name__ == '__main__':
 
             # create mini-batches
             random.shuffle(tdata)
-            batches = [tdata[x : x + args['batch_size']] for x in xrange(0, len(tdata), 
+            batches = [tdata[x : x + args['batch_size']] for x in xrange(0, len(tdata),
                        args['batch_size'])]
 
             epoch_error = 0.0

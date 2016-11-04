@@ -1,7 +1,7 @@
 from operator import itemgetter
 
-# - an individual node contains the word associated with the node along with 
-#   pointers to its kids and parents. 
+# - an individual node contains the word associated with the node along with
+#   pointers to its kids and parents.
 class node:
 
     def __init__(self, word):
@@ -12,7 +12,7 @@ class node:
             self.finished = 0
             self.is_word = 1
 
-            # the "ind" variable stores the look-up index of the word in the 
+            # the "ind" variable stores the look-up index of the word in the
             # word embedding matrix We. set this value when the vocabulary is finalized
             self.ind = -1
 
@@ -77,10 +77,10 @@ class dtree:
             if len(curr.kids) > 0:
                 for ind, rel in curr.kids:
                     words.append((ind, self.get(ind).word))
-                    to_do.insert(0, self.get(ind))  
+                    to_do.insert(0, self.get(ind))
 
 
-        return ' '.join([word for ind, word in sorted(words, key=itemgetter(0) ) ]).strip()  
+        return ' '.join([word for ind, word in sorted(words, key=itemgetter(0) ) ]).strip()
 
 
     def reset_finished(self):

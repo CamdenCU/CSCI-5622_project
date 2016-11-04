@@ -32,7 +32,7 @@ def relu(x):
 
 def drelu(x):
     return x > 0
-    
+
 def crossent(label, classification):
     return -sum(label * log(classification))
 

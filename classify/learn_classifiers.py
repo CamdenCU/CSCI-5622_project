@@ -28,7 +28,7 @@ def collapse_questions(train_trees, test_trees):
     return train_q, test_q
 
 
-# - full evaluation on test data, returns accuracy on all sentence positions 
+# - full evaluation on test data, returns accuracy on all sentence positions
 #   within a question including full question accuracy
 # - can add / remove features to replicate baseline models described in paper
 # - bow_feats is unigrams, rel_feats is dependency relations
@@ -39,7 +39,7 @@ def evaluate(data_split, model_file, d, rnn_feats=True, bow_feats=False, rel_fea
     vocab, rel_list, ans_list, tree_dict = \
         cPickle.load(open(data_split, 'rb'))
 
-    train_trees = tree_dict['train'] + tree_dict['dev'] 
+    train_trees = tree_dict['train'] + tree_dict['dev']
     test_trees = tree_dict['test'] + tree_dict['devtest']
 
     params, vocab, rel_list = cPickle.load(open(model_file, 'rb'))
