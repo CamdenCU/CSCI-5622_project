@@ -1,0 +1,1 @@
+Fork of the original qanta project 11/2/2016 from http://cs.umd.edu/~miyyer/qblearn.  This fork is to switch from scikit.learn to Tensor Flow for a class project at CU Boulder CSCI 5622 Machine Learning.  See original paper at https://cs.umd.edu/~miyyer/pubs/2014_qb_rnn.pdf.
