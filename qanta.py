@@ -151,7 +151,7 @@ if __name__ == '__main__':
     # NOTE: it significantly helps both accuracy and training time to initialize
     #       word embeddings using something like Word2Vec. we have provided word2vec
     #       embeddings for both datasets. for other data, we strongly recommend
-    #       using a similar smart initialization. you can also randomly initalize, although
+    #       using a similar smart initialization. you can also randomly initialize, although
     #       this generally results in slower convergence to a worse local minima
     orig_We = cPickle.load(open(args['We'], 'rb'))
     # orig_We = gen_rand_we(len(vocab), d)

@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{14480d57-b500-42d3-a259-c9c40039ddcf}</ProjectGuid>
     <ProjectHome />
-    <StartupFile>evaluate_qanta.py</StartupFile>
+    <StartupFile>qanta.py</StartupFile>
     <SearchPath />
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
