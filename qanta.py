@@ -24,50 +24,20 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
     for item in split_data:
         to_map.append( (oparams, item) )
 
-    result = __debug__ and map(objective_and_grad, to_map) or pool.map(objective_and_grad, to_map)
+    result = pool.map(objective_and_grad, to_map)
     pool.close()   # no more processes accepted by this pool
     pool.join()    # wait until all processes are finished
 
     total_err = 0.0
     all_nodes = 0.0
-    total_grad = None
 
-    for (err, grad, num_nodes) in result:
+    for (err, num_nodes) in result:
         total_err += err
-
-        if total_grad is None:
-            total_grad = grad
-        else:
-            total_grad += grad
-
         all_nodes += num_nodes
 
-    # add L2 regularization
-    params = unroll_params(params, d, len_voc, rel_list)
-    (rel_dict, Wv, b, L) = params
-    grads = unroll_params(total_grad, d, len_voc, rel_list)
-    [lambda_W, lambda_L] = lambdas
+    cost = total_err / all_nodes
 
-    reg_cost = 0.0
-    for key in rel_list:
-        reg_cost += 0.5 * lambda_W * sum(rel_dict[key] ** 2)
-        grads[0][key] = grads[0][key] / all_nodes
-        grads[0][key] += lambda_W * rel_dict[key]
-
-    reg_cost += 0.5 * lambda_W * sum(Wv ** 2)
-    grads[1] = grads[1] / all_nodes
-    grads[1] += lambda_W * Wv
-
-    grads[2] = grads[2] / all_nodes
-
-    reg_cost += 0.5 * lambda_L * sum(L ** 2)
-    grads[3] = grads[3] / all_nodes
-    grads[3] += lambda_L * L
-
-    cost = total_err / all_nodes + reg_cost
-    grad = roll_params(grads, rel_list)
-
-    return cost, grad
+    return cost
 
 
 # this function computes the objective / grad for each minibatch
@@ -76,7 +46,7 @@ def objective_and_grad(par_data):
     params, d, len_voc, rel_list = par_data[0]
     data = par_data[1]
     params = unroll_params(params, d, len_voc, rel_list)
-    grads = init_dtrnn_grads(rel_list, d, len_voc)
+
 
     (rel_dict, Wv, b, L) = params
 
@@ -98,10 +68,8 @@ def objective_and_grad(par_data):
         error_sum += tree.error()
         tree_size += len(nodes)
 
-        prop.backprop(params[:-1], tree, d, len_voc, grads)
 
-    grad = roll_params(grads, rel_list)
-    return (error_sum, grad, tree_size)
+    return (error_sum, tree_size)
 
 
 # train qanta and save model
@@ -232,10 +200,8 @@ if __name__ == '__main__':
             epoch_error = 0.0
             for batch_ind, batch in enumerate(batches):
                 now = time.time()
-                err, grad = par_objective(args['num_proc'], batch, r, args['d'], len(vocab), \
+                err = par_objective(args['num_proc'], batch, r, args['d'], len(vocab), \
                                           rel_list, lambdas)
-                update = ag.rescale_update(grad)
-                r = r - update
                 lstring = 'epoch: ' + str(epoch) + ' batch_ind: ' + str(batch_ind) + \
                         ' error, ' + str(err) + ' time = '+ str(time.time()-now) + ' sec'
                 print lstring
@@ -257,10 +223,6 @@ if __name__ == '__main__':
                 print 'saving model...'
                 params = unroll_params(r, args['d'], len(vocab), rel_list)
                 cPickle.dump( ( params, vocab, rel_list), open(param_file, 'wb'))
-
-            # reset adagrad weights
-            if epoch % args['adagrad_reset'] == 0 and epoch != 0:
-                ag.reset_weights()
 
             # check accuracy on validation set
             if epoch % args['do_val'] == 0 and epoch != 0:
