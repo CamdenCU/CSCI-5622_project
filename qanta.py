@@ -24,7 +24,7 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
     for item in split_data:
         to_map.append( (oparams, item) )
 
-    result = pool.map(objective_and_grad, to_map)
+    result = __debug__ and map(objective_and_grad, to_map) or pool.map(objective_and_grad, to_map)
     pool.close()   # no more processes accepted by this pool
     pool.join()    # wait until all processes are finished
 
