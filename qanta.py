@@ -39,6 +39,11 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
 
     return cost
 
+class particle:
+    gBest = [] #should be atomic by default
+    def __init__(self):
+        self.pBest = []
+        self.v = []
 
 # this function computes the objective / grad for each minibatch
 def objective_and_grad(par_data):
@@ -180,9 +185,6 @@ if __name__ == '__main__':
     print 'parameter vector dimensionality:', dim
 
     log = open(log_file, 'w')
-
-    # minibatch adagrad training
-    ag = Adagrad(r.shape)
 
     for tdata in [train_trees]:
 
