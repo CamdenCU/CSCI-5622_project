@@ -69,6 +69,11 @@ class particle:
         part.v = particle.chi*(part.v + (random.uniform(0,particle.theta1,len(part.x))*(part.pBestX-part.x))+ (random.uniform(0,particle.theta2,len(part.x))*(particle.gBestX-part.x)))
         part.x = part.x+part.v
 
+    @staticmethod
+    def resetG():
+        particle.gBestX = []
+        particle.gBestErr = Inf
+
 
 def eval(obj):
     return 0
@@ -87,6 +92,7 @@ def objective_and_grad(par_data):
 
     particles = [particle() for x in range(3)]
     [x.resetV(params) for x in particles]
+    particle.resetG()
     # compute error and gradient for each tree in minibatch
     # also keep track of total number of nodes in minibatch
     for x in particles:
@@ -136,7 +142,7 @@ if __name__ == '__main__':
                         per epoch). for provided datasets, 272 for history and 341 for lit', type=int,\
                         default=272)
     parser.add_argument('-ep', '--num_epochs', help='number of training epochs, can also determine \
-                         dynamically via validate method', type=int, default=30)
+                         dynamically via validate method', type=int, default=1)
     parser.add_argument('-agr', '--adagrad_reset', help='reset sum of squared gradients after this many\
                          epochs', type=int, default=3)
     parser.add_argument('-v', '--do_val', help='check performance on dev set after this many\
