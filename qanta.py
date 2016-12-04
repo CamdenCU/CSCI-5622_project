@@ -24,57 +24,97 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
     for item in split_data:
         to_map.append( (oparams, item) )
 
-    result = pool.map(objective_and_grad, to_map)
+    result = map(objective_and_grad, to_map)
+    print('')
     pool.close()   # no more processes accepted by this pool
     pool.join()    # wait until all processes are finished
 
     total_err = 0.0
     all_nodes = 0.0
+    bestParams = []
+    bestErr = Inf
 
-    for (err, num_nodes) in result:
+    for (err, num_nodes,bestR) in result:
         total_err += err
         all_nodes += num_nodes
+        if err<bestErr:
+            bestParams = bestR
+            bestErr = err
 
     cost = total_err / all_nodes
 
-    return cost
+    return cost, bestParams
 
 class particle:
-    gBest = [] #should be atomic by default
+    gBestX = [] #should be static atomic by default
+    gBestErr = Inf
+    chi = .7298
+    theta1 = 1.49618
+    theta2 = 1.49618
+
     def __init__(self):
-        self.pBest = []
+        self.pBestX = []
+        self.pBestErr = Inf
         self.v = []
+        self.x = []
+
+    def resetV(self,vec):
+        self.v = random.uniform(-1.0,1.0,len(vec))
+        self.x = random.uniform(min(vec),max(vec),len(vec))+vec
+        self.pBestX = vec
+
+    @staticmethod
+    def step(part):
+        if len(particle.gBestX)!=len(part.pBestX):particle.gBestX = part.pBestX
+        part.v = particle.chi*(part.v + (random.uniform(0,particle.theta1,len(part.x))*(part.pBestX-part.x))+ (random.uniform(0,particle.theta2,len(part.x))*(particle.gBestX-part.x)))
+        part.x = part.x+part.v
+
+
+def eval(obj):
+    return 0
 
 # this function computes the objective / grad for each minibatch
 def objective_and_grad(par_data):
 
     params, d, len_voc, rel_list = par_data[0]
     data = par_data[1]
-    params = unroll_params(params, d, len_voc, rel_list)
+    params_unrolled = unroll_params(params, d, len_voc, rel_list)
 
 
-    (rel_dict, Wv, b, L) = params
+    (rel_dict, Wv, b, L) = params_unrolled
 
-    error_sum = 0.0
-    num_nodes = 0
-    tree_size = 0
 
+
+    particles = [particle() for x in range(3)]
+    [x.resetV(params) for x in particles]
     # compute error and gradient for each tree in minibatch
     # also keep track of total number of nodes in minibatch
-    for index, tree in enumerate(data):
+    for x in particles:
+        print '{}'.format('.'),
 
-        nodes = tree.get_nodes()
-        for node in nodes:
-            node.vec = L[:, node.ind].reshape( (d, 1))
+        error_sum = 0.0
+        num_nodes = 0
+        tree_size = 0
+        particle.step(x)
+        for index, tree in enumerate(data):
 
-        tree.ans_vec = L[:, tree.ans_ind].reshape( (d, 1))
+            nodes = tree.get_nodes()
+            for node in nodes:
+                node.vec = L[:, node.ind].reshape( (d, 1))
 
-        prop.forward_prop(params, tree, d)
-        error_sum += tree.error()
-        tree_size += len(nodes)
+            tree.ans_vec = L[:, tree.ans_ind].reshape( (d, 1))
 
+            prop.forward_prop(unroll_params(x.x, d, len_voc, rel_list), tree, d)
+            error_sum += tree.error()
+            tree_size += len(nodes)
+        if error_sum<x.pBestErr:
+            x.pBestErr = error_sum
+            x.pBestX = x.x
+        if x.pBestErr<particle.gBestErr:
+            particle.gBestErr = x.pBestErr
+            particle.gBestX = x.pBestX
 
-    return (error_sum, tree_size)
+    return (particle.gBestErr, tree_size, particle.gBestX)
 
 
 # train qanta and save model
@@ -202,7 +242,7 @@ if __name__ == '__main__':
             epoch_error = 0.0
             for batch_ind, batch in enumerate(batches):
                 now = time.time()
-                err = par_objective(args['num_proc'], batch, r, args['d'], len(vocab), \
+                err,r = par_objective(args['num_proc'], batch, r, args['d'], len(vocab), \
                                           rel_list, lambdas)
                 lstring = 'epoch: ' + str(epoch) + ' batch_ind: ' + str(batch_ind) + \
                         ' error, ' + str(err) + ' time = '+ str(time.time()-now) + ' sec'
