@@ -164,7 +164,7 @@ def evaluate(data_split, model_file, d, rnn_feats=True, bow_feats=False, rel_fea
     print ''
 
     # finer-grained evaluation, see how well QANTA does at each sentence position
-    pred = classifier.batch_classify([fs for (fs,l) in test_feats])
+    pred = classifier.classify_many([fs for (fs,l) in test_feats])
 
     count_dists = Counter()
     corr_dists = Counter()
