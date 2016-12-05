@@ -7,12 +7,13 @@ import rnn.propagation as prop
 from classify.learn_classifiers import validate
 import cPickle, time, argparse
 from multiprocessing import Pool
+import copy
 
 
 # splits the training data into minibatches
 # multi-core parallelization
 def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
-    pool = Pool(processes=num_proc)
+
 
     # non-data params
     oparams = [params, d, len_voc, rel_list]
@@ -24,26 +25,18 @@ def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
     for item in split_data:
         to_map.append( (oparams, item) )
 
-    result = map(objective_and_grad, to_map)
-    print('')
-    pool.close()   # no more processes accepted by this pool
-    pool.join()    # wait until all processes are finished
+    result = pool.map(objective_and_grad, to_map)
 
     total_err = 0.0
     all_nodes = 0.0
-    bestParams = []
-    bestErr = Inf
 
-    for (err, num_nodes,bestR) in result:
+    for (err, num_nodes) in result:
         total_err += err
         all_nodes += num_nodes
-        if err<bestErr:
-            bestParams = bestR
-            bestErr = err
 
     cost = total_err / all_nodes
 
-    return cost, bestParams
+    return cost
 
 class particle:
     gBestX = [] #should be static atomic by default
@@ -51,17 +44,28 @@ class particle:
     chi = .7298
     theta1 = 1.49618
     theta2 = 1.49618
+    swarmSize = 0
 
     def __init__(self):
         self.pBestX = []
         self.pBestErr = Inf
         self.v = []
         self.x = []
+        self.id = particle.swarmSize
+        particle.swarmSize += 1
 
     def resetV(self,vec):
-        self.v = random.uniform(-1.0,1.0,len(vec))
-        self.x = random.uniform(min(vec),max(vec),len(vec))+vec
+        self.v = random.uniform(-2.0,2.0,len(vec))
+        self.x = random.uniform(0,2*max(vec),len(vec))
         self.pBestX = vec
+
+    def update(self,err):
+        if err<self.pBestErr:
+            self.pBestErr = err
+            self.pBestX = self.x
+        if self.pBestErr<particle.gBestErr:
+            particle.gBestErr = self.pBestErr
+            particle.gBestX = self.pBestX
 
     @staticmethod
     def step(part):
@@ -75,57 +79,41 @@ class particle:
         particle.gBestErr = Inf
 
 
-def eval(obj):
-    return 0
-
 # this function computes the objective / grad for each minibatch
 def objective_and_grad(par_data):
 
     params, d, len_voc, rel_list = par_data[0]
     data = par_data[1]
-    params_unrolled = unroll_params(params, d, len_voc, rel_list)
+    params = unroll_params(params, d, len_voc, rel_list)
 
 
-    (rel_dict, Wv, b, L) = params_unrolled
+    (rel_dict, Wv, b, L) = params
 
+    error_sum = 0.0
+    num_nodes = 0
+    tree_size = 0
 
-
-    particles = [particle() for x in range(3)]
-    [x.resetV(params) for x in particles]
-    particle.resetG()
     # compute error and gradient for each tree in minibatch
     # also keep track of total number of nodes in minibatch
-    for x in particles:
-        print '{}'.format('.'),
+    for index, tree in enumerate(data):
 
-        error_sum = 0.0
-        num_nodes = 0
-        tree_size = 0
-        particle.step(x)
-        for index, tree in enumerate(data):
+        nodes = tree.get_nodes()
+        for node in nodes:
+            node.vec = L[:, node.ind].reshape( (d, 1))
 
-            nodes = tree.get_nodes()
-            for node in nodes:
-                node.vec = L[:, node.ind].reshape( (d, 1))
+        tree.ans_vec = L[:, tree.ans_ind].reshape( (d, 1))
 
-            tree.ans_vec = L[:, tree.ans_ind].reshape( (d, 1))
+        prop.forward_prop(params, tree, d)
+        error_sum += tree.error()
+        tree_size += len(nodes)
 
-            prop.forward_prop(unroll_params(x.x, d, len_voc, rel_list), tree, d)
-            error_sum += tree.error()
-            tree_size += len(nodes)
-        if error_sum<x.pBestErr:
-            x.pBestErr = error_sum
-            x.pBestX = x.x
-        if x.pBestErr<particle.gBestErr:
-            particle.gBestErr = x.pBestErr
-            particle.gBestX = x.pBestX
 
-    return (particle.gBestErr, tree_size, particle.gBestX)
+    return (error_sum, tree_size)
 
 
 # train qanta and save model
 if __name__ == '__main__':
-
+    
     # command line arguments
     parser = argparse.ArgumentParser(description='QANTA: a question answering neural network \
                                      with trans-sentential aggregation')
@@ -142,7 +130,7 @@ if __name__ == '__main__':
                         per epoch). for provided datasets, 272 for history and 341 for lit', type=int,\
                         default=272)
     parser.add_argument('-ep', '--num_epochs', help='number of training epochs, can also determine \
-                         dynamically via validate method', type=int, default=1)
+                         dynamically via validate method', type=int, default=10)
     parser.add_argument('-agr', '--adagrad_reset', help='reset sum of squared gradients after this many\
                          epochs', type=int, default=3)
     parser.add_argument('-v', '--do_val', help='check performance on dev set after this many\
@@ -151,14 +139,14 @@ if __name__ == '__main__':
                          default='models/hist_params')
 
     args = vars(parser.parse_args())
-
+    pool = Pool(processes=args['num_proc'])
 
     ## load data
     vocab, rel_list, ans_list, tree_dict = \
         cPickle.load(open(args['data'], 'rb'))
 
     # four total folds in this dataset: train, test, dev, and devtest
-    train_trees = tree_dict['train']
+    train_trees = tree_dict['dev']
 
     # - since the dataset that we were able to release is fairly small, the
     #   test, dev, and devtest folds are tiny. feel free to validate over another
@@ -232,55 +220,64 @@ if __name__ == '__main__':
 
     log = open(log_file, 'w')
 
-    for tdata in [train_trees]:
+    tdata = copy.deepcopy(train_trees)
+    min_error = float('inf')
 
-        min_error = float('inf')
+    particles = [particle() for x in range(10)]
+    [x.resetV(r) for x in particles]
 
-        for epoch in range(0, args['num_epochs']):
+    for epoch in range(0, args['num_epochs']):
 
-            lstring = ''
+        lstring = ''
 
-            # create mini-batches
-            random.shuffle(tdata)
-            batches = [tdata[x : x + args['batch_size']] for x in xrange(0, len(tdata),
-                       args['batch_size'])]
+        # create mini-batches
+        random.shuffle(tdata)
+        batches = [tdata[x : x + args['batch_size']] for x in xrange(0, len(tdata),
+                    args['batch_size'])]
 
-            epoch_error = 0.0
+        epoch_error = 0.0
+        for curParticle in particles:
+            batch_error = 0.0
+            bStart = time.time()
             for batch_ind, batch in enumerate(batches):
                 now = time.time()
-                err,r = par_objective(args['num_proc'], batch, r, args['d'], len(vocab), \
-                                          rel_list, lambdas)
+                err = par_objective(args['num_proc'], batch, curParticle.x, args['d'], len(vocab), \
+                                            rel_list, lambdas)
                 lstring = 'epoch: ' + str(epoch) + ' batch_ind: ' + str(batch_ind) + \
                         ' error, ' + str(err) + ' time = '+ str(time.time()-now) + ' sec'
-                print lstring
-                log.write(lstring + '\n')
-                log.flush()
-
+                #print lstring
+                #log.write(lstring + '\n')
+                #log.flush()
+                batch_error += err
                 epoch_error += err
+            curParticle.update(batch_error)
+            particle.step(curParticle)
+            print 'epoch:{:<3d}id:{:<4d} batchError:{:.3f} time:{:.3f}'.format(epoch,curParticle.id,batch_error/len(batches),time.time()-bStart)
 
-            # done with epoch
-            print 'done with epoch ', epoch, ' epoch error = ', epoch_error, ' min error = ', min_error
-            lstring = 'done with epoch ' + str(epoch) + ' epoch error = ' + str(epoch_error) \
-                     + ' min error = ' + str(min_error) + '\n\n'
+
+        # done with epoch
+        #print 'done with epoch ', epoch, ' epoch error = ', epoch_error, ' min error = ', min_error
+        #lstring = 'done with epoch ' + str(epoch) + ' epoch error = ' + str(epoch_error) \
+        #            + ' min error = ' + str(min_error) + '\n\n'
+        #log.write(lstring)
+        #log.flush()
+
+        # save parameters if the current model is better than previous best model
+        if epoch_error < min_error:
+            min_error = epoch_error
+            print 'saving model...'
+            params = unroll_params(r, args['d'], len(vocab), rel_list)
+            cPickle.dump( ( params, vocab, rel_list), open(param_file, 'wb'))
+
+        # check accuracy on validation set
+        if epoch % args['do_val'] == 0 and epoch != 0:
+            print 'validating...'
+            params = unroll_params(r, args['d'], len(vocab), rel_list)
+            train_acc, val_acc = validate([train_trees, val_trees], params, args['d'])
+            lstring = 'train acc = ' + str(train_acc) + ', val acc = ' + str(val_acc) + '\n\n\n'
+            print lstring
             log.write(lstring)
             log.flush()
-
-            # save parameters if the current model is better than previous best model
-            if epoch_error < min_error:
-                min_error = epoch_error
-                print 'saving model...'
-                params = unroll_params(r, args['d'], len(vocab), rel_list)
-                cPickle.dump( ( params, vocab, rel_list), open(param_file, 'wb'))
-
-            # check accuracy on validation set
-            if epoch % args['do_val'] == 0 and epoch != 0:
-                print 'validating...'
-                params = unroll_params(r, args['d'], len(vocab), rel_list)
-                train_acc, val_acc = validate([train_trees, val_trees], params, args['d'])
-                lstring = 'train acc = ' + str(train_acc) + ', val acc = ' + str(val_acc) + '\n\n\n'
-                print lstring
-                log.write(lstring)
-                log.flush()
 
     log.close()
 

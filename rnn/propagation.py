@@ -87,7 +87,7 @@ def forward_prop(params, tree, d, labels=True):
 
             rank = 1.0
             for ans in wrong_ans:
-                err = max(0.0, base + ans.T.dot(curr.p_norm))
+                err = float(max(0.0, base + ans.T.dot(curr.p_norm)))
                 if err > 0.0:
                     # WARP approximation of rank
                     rank = (len(wrong_ans) - 1) / rank
