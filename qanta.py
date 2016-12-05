@@ -10,21 +10,6 @@ from multiprocessing import Pool
 import copy
 
 
-# splits the training data into minibatches
-# multi-core parallelization
-def par_objective(num_proc, data, params, d, len_voc, rel_list, lambdas):
-
-
-    # non-data params
-    oparams = [params, d, len_voc, rel_list]
-
-    result = objective_and_grad((oparams, data))
-
-
-    cost = result[0]/result[1]
-
-    return cost
-
 class particle:
     gBestX = [] #should be static atomic by default
     gBestErr = Inf
@@ -42,9 +27,11 @@ class particle:
         particle.swarmSize += 1
 
     def resetV(self,vec):
+        #print(self.id)
         self.v = random.uniform(-1.0,1.0,len(vec))
         self.x = random.uniform(-2.0,2.0,len(vec))
-        self.pBestX = vec
+        self.pBestX = self.x
+        if len(particle.gBestX) != len(vec): particle.gBestX=vec
 
     def update(self,err):
         if err<self.pBestErr:
@@ -73,7 +60,6 @@ def objective_and_grad(par_data):
     params, d, len_voc, rel_list = par_data[0]
     data = par_data[1]
     params = unroll_params(params, d, len_voc, rel_list)
-
 
     (rel_dict, Wv, b, L) = params
 
@@ -116,7 +102,7 @@ if __name__ == '__main__':
                         type=float, default=0.)
     parser.add_argument('-b', '--batch_size', help='adagrad minibatch size (ideal: 25 minibatches \
                         per epoch). for provided datasets, 272 for history and 341 for lit', type=int,\
-                        default=272)
+                        default=68)
     parser.add_argument('-ep', '--num_epochs', help='number of training epochs, can also determine \
                          dynamically via validate method', type=int, default=30)
     parser.add_argument('-agr', '--adagrad_reset', help='reset sum of squared gradients after this many\
@@ -127,14 +113,14 @@ if __name__ == '__main__':
                          default='models/hist_params')
 
     args = vars(parser.parse_args())
-    pool = Pool(processes=args['num_proc'])
+    pool = Pool(processes=args['num_proc'],maxtasksperchild=10)
 
     ## load data
     vocab, rel_list, ans_list, tree_dict = \
         cPickle.load(open(args['data'], 'rb'))
 
     # four total folds in this dataset: train, test, dev, and devtest
-    train_trees = tree_dict['train']
+    train_trees = tree_dict['dev']
 
     # - since the dataset that we were able to release is fairly small, the
     #   test, dev, and devtest folds are tiny. feel free to validate over another
@@ -201,6 +187,7 @@ if __name__ == '__main__':
 
     # add We matrix to params
     params += (orig_We, )
+    del orig_We
     r = roll_params(params, rel_list)
 
     dim = r.shape[0]
@@ -208,32 +195,36 @@ if __name__ == '__main__':
 
     log = open(log_file, 'w')
 
-    tdata = copy.deepcopy(train_trees)
+    
     min_error = float('inf')
 
     particles = [particle() for x in range(10)]
     [x.resetV(r) for x in particles]
+    
 
+    lstring = ''
+
+    # create mini-batches
+    random.shuffle(train_trees)
+    batches = [train_trees[x : x + args['batch_size']] for x in xrange(0, len(train_trees),
+                args['batch_size'])]
     for epoch in range(0, args['num_epochs']):
 
-        lstring = ''
-
-        # create mini-batches
-        random.shuffle(tdata)
-        batches = [tdata[x : x + args['batch_size']] for x in xrange(0, len(tdata),
-                    args['batch_size'])]
 
         epoch_error = 0.0
         for curParticle in particles:
             batch_error = 0.0
             bStart = time.time()
-            if curParticle.id != 0 and epoch != 0: particle.step(curParticle)
+            particle.step(curParticle)
             result = pool.map(objective_and_grad, [([curParticle.x, args['d'], len(vocab), rel_list],x) for x in batches])
             batch_error = sum(x[0] for x in result)/sum(x[1] for x in result)
             epoch_error += batch_error
             curParticle.update(batch_error)
             #particle.step(curParticle)
             print 'epoch:{:<3d}id:{:<3d} batchError:{:.3f} time:{:.3f}'.format(epoch,curParticle.id,batch_error,time.time()-bStart)
+
+
+        
 
         # save parameters if the current model is better than previous best model
         if epoch_error < min_error:
