@@ -45,7 +45,13 @@ class particle:
     @staticmethod
     def step(part):
         if len(particle.gBestX)!=len(part.pBestX):particle.gBestX = part.pBestX
-        part.v = particle.chi*(part.v + (random.uniform(0,particle.theta1,len(part.x))*(part.pBestX-part.x))+ (random.uniform(0,particle.theta2,len(part.x))*(particle.gBestX-part.x)))
+        u1 = random.uniform(0,particle.theta1,len(part.x))
+        u2 = random.uniform(0,particle.theta2,len(part.x))
+        dif1 = (part.pBestX-part.x)
+        dif2 = (particle.gBestX-part.x)
+        oldV = part.v
+        part.v = particle.chi*(oldV+ (u1*dif1)+ (u2*(dif2)))
+        print 'id:{:<3d} {:= 6.3f} <- {:= 6.3f} + ({:= 6.3f}({:= 6.3f})+{:= 6.3f}({:= 6.3f}))'.format(part.id,part.v[0], oldV[0],u1[0],dif1[0],u2[0],dif2[0])
         part.x = part.x+part.v
 
     @staticmethod
@@ -210,17 +216,20 @@ if __name__ == '__main__':
                 args['batch_size'])]
     for epoch in range(0, args['num_epochs']):
 
-
-        epoch_error = 0.0
-        for curParticle in particles:
+        for batch in batches:
+            epoch_error = 0.0
+            minibatches = [batch[x*len(batch)/args['num_proc']:(x+1)*len(batch)/args['num_proc']] for x in range(args['num_proc'])]
             batch_error = 0.0
             bStart = time.time()
-            particle.step(curParticle)
-            result = pool.map(objective_and_grad, [([curParticle.x, args['d'], len(vocab), rel_list],x) for x in batches])
-            batch_error = sum(x[0] for x in result)/sum(x[1] for x in result)
-            epoch_error += batch_error
-            curParticle.update(batch_error)
-            #particle.step(curParticle)
+            for x in range(10):
+                for curParticle in particles:
+                    particle.step(curParticle)
+                    result = pool.map(objective_and_grad, [([curParticle.x, args['d'], len(vocab), rel_list],x) for x in minibatches])
+                    batch_error = sum(x[0] for x in result)/sum(x[1] for x in result)
+                    #print 'id:{:d}  {:<5f} {:<5f} {:<5f}'.format(curParticle.id, curParticle.x[0],curParticle.x[1],curParticle.x[2])
+                    epoch_error += batch_error
+                    curParticle.update(batch_error)
+                    #particle.step(curParticle)
             print 'epoch:{:<3d}id:{:<3d} batchError:{:.3f} time:{:.3f}'.format(epoch,curParticle.id,batch_error,time.time()-bStart)
 
 
@@ -244,6 +253,3 @@ if __name__ == '__main__':
             log.flush()
 
     log.close()
-
-
-

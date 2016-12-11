@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<ProfilingTarget xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <ProjectTarget>
+    <TargetProject>14480d57-b500-42d3-a259-c9c40039ddcf</TargetProject>
+    <FriendlyName>CSCI-5622_project</FriendlyName>
+  </ProjectTarget>
+  <Reports>
+    <Report>
+      <Filename>C:\Users\John\AppData\Local\Temp\CSCI-5622_project1_20161208.vsp</Filename>
+    </Report>
+  </Reports>
+</ProfilingTarget>
